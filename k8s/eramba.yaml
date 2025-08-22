@@ -1,0 +1,159 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: eramba-app
+  namespace: eramba
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: eramba-data
+  namespace: eramba
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: eramba-logs
+  namespace: eramba
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eramba
+  namespace: eramba
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: eramba
+  template:
+    metadata:
+      labels:
+        app: eramba
+    spec:
+      containers:
+      - name: eramba
+        image: ghcr.io/eramba/eramba:latest
+        ports:
+        - containerPort: 80
+          name: http
+        envFrom:
+        - configMapRef:
+            name: eramba-config
+        - secretRef:
+            name: eramba-secrets
+        volumeMounts:
+        - name: eramba-data
+          mountPath: /var/www/eramba/app/upgrade/data
+        - name: eramba-app
+          mountPath: /var/www/eramba
+        - name: eramba-logs
+          mountPath: /var/www/eramba/app/upgrade/logs
+        - name: apache-security
+          mountPath: /etc/apache2/conf-available/security.conf
+          subPath: security.conf
+        - name: apache-ports
+          mountPath: /etc/apache2/ports.conf
+          subPath: ports.conf
+        - name: apache-vhost
+          mountPath: /etc/apache2/sites-available/000-default.conf
+          subPath: vhost.conf
+        - name: cron-crontab
+          mountPath: /etc/cron.d/eramba-crontab
+          subPath: crontab
+        - name: docker-env
+          mountPath: /var/www/docker.env
+          subPath: docker.env
+      - name: cron
+        image: ghcr.io/eramba/eramba:latest
+        command: [ "cron", "-f" ]
+        envFrom:
+        - configMapRef:
+            name: eramba-config
+        - secretRef:
+            name: eramba-secrets
+        volumeMounts:
+        - name: eramba-data
+          mountPath: /var/www/eramba/app/upgrade/data
+        - name: eramba-app
+          mountPath: /var/www/eramba
+        - name: eramba-logs
+          mountPath: /var/www/eramba/app/upgrade/logs
+        - name: cron-crontab
+          mountPath: /etc/cron.d/eramba-crontab
+          subPath: crontab
+        - name: docker-env
+          mountPath: /var/www/docker.env
+          subPath: docker.env
+      volumes:
+      - name: eramba-app
+        persistentVolumeClaim:
+          claimName: eramba-app
+      - name: eramba-data
+        persistentVolumeClaim:
+          claimName: eramba-data
+      - name: eramba-logs
+        persistentVolumeClaim:
+          claimName: eramba-logs
+      - name: apache-security
+        configMap:
+          name: eramba-apache-config
+          items:
+          - key: security.conf
+            path: security.conf
+      - name: apache-ports
+        configMap:
+          name: eramba-apache-config
+          items:
+          - key: ports.conf
+            path: ports.conf
+      - name: apache-vhost
+        configMap:
+          name: eramba-apache-config
+          items:
+          - key: vhost.conf
+            path: vhost.conf
+      - name: cron-crontab
+        configMap:
+          name: eramba-crontab
+          defaultMode: 644
+          items:
+          - key: crontab
+            path: crontab
+      - name: docker-env
+        configMap:
+          name: eramba-envfile
+          items:
+          - key: docker.env
+            path: docker.env
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: eramba
+  namespace: eramba
+spec:
+  selector:
+    app: eramba
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80

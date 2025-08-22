@@ -1,0 +1,132 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: eramba-config
+  namespace: eramba
+data:
+  DB_HOST: "REPLACE_RDS_ENDPOINT"
+  DB_DATABASE: "REPLACE_DB_NAME"
+  DB_USERNAME: "REPLACE_DB_USER"
+  CACHE_URL: "Redis://?server=REPLACE_ELASTICACHE_ENDPOINT&port=6379&password=&timeout=3"
+  USE_PROXY: "0"
+  PROXY_HOST: ""
+  PROXY_PORT: ""
+  USE_PROXY_AUTH: "0"
+  PROXY_AUTH_USER: ""
+  PROXY_AUTH_PASS: ""
+  PUBLIC_ADDRESS: "https://localhost:8443"
+  DOCKER_DEPLOYMENT: "1"
+  LDAPTLS_REQCERT: "never"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: eramba-apache-config
+  namespace: eramba
+data:
+  ports.conf: |
+    # If you just change the port or add more ports here, you will likely also
+    # have to change the VirtualHost statement in
+    # /etc/apache2/sites-enabled/000-default.conf
+
+    Listen 80
+    Listen 8080
+
+    <IfModule ssl_module>
+      Listen 443
+      Listen 8443
+    </IfModule>
+
+    <IfModule mod_gnutls.c>
+      Listen 443
+      Listen 8443
+    </IfModule>
+  security.conf: |
+    ServerTokens Prod
+    ServerSignature Off
+    TraceEnable Off
+  vhost-ssl.conf: |
+    <VirtualHost *:443 *:8443>
+        DocumentRoot "/var/www/eramba"
+        <Directory "/var/www/eramba">
+            AllowOverride all
+            Require all granted
+        </Directory>
+        ErrorLog ${APACHE_LOG_DIR}/error.log
+        CustomLog ${APACHE_LOG_DIR}/access.log combined
+
+        SSLCertificateFile    /etc/ssl/certs/mycert.crt
+        SSLCertificateKeyFile /etc/ssl/private/mycert.key
+
+        LimitRequestLine 20000
+    </VirtualHost>
+  vhost.conf: |
+    <VirtualHost *:80 *:8080>
+      DocumentRoot "/var/www/eramba"
+      <Directory "/var/www/eramba">
+          AllowOverride all
+          Require all granted
+      </Directory>
+      ErrorLog ${APACHE_LOG_DIR}/error.log
+      CustomLog ${APACHE_LOG_DIR}/access.log combined
+
+      LimitRequestLine 20000
+    </VirtualHost>
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: eramba-crontab
+  namespace: eramba
+data:
+  crontab: |
+    @hourly export $(cat /var/www/docker.env | xargs) && /bin/sh /var/www/eramba/app/upgrade/bin/cake cron job hourly >> /var/log/cron.log 2>&1
+    @daily export $(cat /var/www/docker.env | xargs) && /bin/sh /var/www/eramba/app/upgrade/bin/cake cron job daily >> /var/log/cron.log 2>&1
+    @yearly export $(cat /var/www/docker.env | xargs) && /bin/sh /var/www/eramba/app/upgrade/bin/cake cron job yearly >> /var/log/cron.log 2>&1
+    * * * * * export $(cat /var/www/docker.env | xargs) && /bin/sh /var/www/eramba/app/upgrade/bin/cake queue run -v >> /var/log/cron.log 2>&1
+    # remember to end this file with an empty new line
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-config
+  namespace: eramba
+data:
+  custom.cnf: |
+    [mysqld]
+    disable-log-bin
+    max_allowed_packet=128M
+    sql_mode=NO_ENGINE_SUBSTITUTION
+    innodb_strict_mode=0
+    innodb_lock_wait_timeout=200
+    innodb_stats_on_metadata=OFF
+    binlog_row_image=MINIMAL
+    sync_binlog=1
+    local_infile=OFF
+    master_verify_checksum=ON
+    relay_log_purge=1
+    binlog_expire_logs_seconds=604800
+    slave_sql_verify_checksum=1
+    skip-host-cache
+    skip-name-resolve
+    slow_query_log=1
+    slow_query_log_file=/tmp/mysql-slow.log
+    log_bin_trust_function_creators=OFF
+    log_bin=OFF
+    bind-address=0.0.0.0
+
+    # performance config - uncomment if you need "performance_schema" monitoring
+    #performance_schema=ON
+    #performance-schema-instrument='statement/%=ON'
+    #performance-schema-consumer-statements-digest=ON
+    #innodb_monitor_enable=all
+
+    [mysql]
+
+    [mysqldump]
+    quick
+    quote-names
+    max_allowed_packet=128M
+
+    [client]
+    bind-address=0.0.0.0
