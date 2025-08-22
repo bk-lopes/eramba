@@ -55,6 +55,8 @@ spec:
         ports:
         - containerPort: 80
           name: http
+        command: [ "/bin/sh" ]
+        args: [ "/var/www/entrypoint.sh" ]
         envFrom:
         - configMapRef:
             name: eramba-config
@@ -82,6 +84,9 @@ spec:
         - name: docker-env
           mountPath: /var/www/docker.env
           subPath: docker.env
+        - name: entrypoint-script
+          mountPath: /var/www/entrypoint.sh
+          subPath: entrypoint.sh
       - name: cron
         image: ghcr.io/eramba/eramba:latest
         command: [ "cron", "-f" ]
@@ -144,6 +149,13 @@ spec:
           items:
           - key: docker.env
             path: docker.env
+      - name: entrypoint-script
+        configMap:
+          name: eramba-entrypoint
+          defaultMode: 755
+          items:
+          - key: entrypoint.sh
+            path: entrypoint.sh
 ---
 apiVersion: v1
 kind: Service
