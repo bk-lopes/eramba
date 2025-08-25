@@ -1,0 +1,127 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -f docker-compose.simple-install.yml
+    kompose.version: 1.37.0 (fb0539e64)
+  labels:
+    io.kompose.service: eramba
+  name: eramba
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: eramba
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert -f docker-compose.simple-install.yml
+        kompose.version: 1.37.0 (fb0539e64)
+      labels:
+        io.kompose.service: eramba
+    spec:
+      containers:
+      - env:
+        - name: CACHE_URL
+          value: Redis://?server=redis.default.svc.cluster.local&port=6379&password=&timeout=3
+        - name: DB_DATABASE
+          value: docker
+        - name: DB_HOST
+          value: mysql.default.svc.cluster.local
+        - name: DB_PASSWORD
+          value: Your_DB_user_P@ssw0rd
+        - name: DB_USERNAME
+          value: docker
+        - name: DOCKER_DEPLOYMENT
+          value: "1"
+        - name: LDAPTLS_REQCERT
+          value: never
+        - name: PROXY_AUTH_PASS
+        - name: PROXY_AUTH_USER
+        - name: PROXY_HOST
+        - name: PROXY_PORT
+        - name: PUBLIC_ADDRESS
+          value: https://eramba.local:8443
+        - name: USE_PROXY
+          value: "0"
+        - name: USE_PROXY_AUTH
+          value: "0"
+        image: ghcr.io/eramba/eramba:latest
+        name: eramba
+        ports:
+        - containerPort: 443
+          protocol: TCP
+        volumeMounts:
+        # - mountPath: /var/www/eramba/app/upgrade/data
+        #   name: data
+        # - mountPath: /var/www/eramba
+        #   name: app
+        - mountPath: /var/www/eramba/app/upgrade/logs
+          name: logs
+        - mountPath: /etc/ssl/certs/mycert.crt
+          name: eramba-cm3
+          subPath: mycert.crt
+        - mountPath: /etc/ssl/private/mycert.key
+          name: eramba-cm4
+          subPath: mycert.key
+        - mountPath: /etc/apache2/conf-available/security.conf
+          name: eramba-cm5
+          subPath: security.conf
+        - mountPath: /etc/apache2/ports.conf
+          name: eramba-cm6
+          subPath: ports.conf
+        - mountPath: /etc/apache2/sites-available/000-default.conf
+          name: eramba-cm7
+          subPath: 000-default.conf
+        - mountPath: /etc/cron.d/eramba-crontab
+          name: eramba-cm8
+          subPath: eramba-crontab
+      restartPolicy: Always
+      volumes:
+      # - name: data
+      #   persistentVolumeClaim:
+      #     claimName: data
+      # - name: app
+      #   persistentVolumeClaim:
+      #     claimName: app
+      - name: logs
+        persistentVolumeClaim:
+          claimName: logs
+      - configMap:
+          items:
+          - key: mycert.crt
+            path: mycert.crt
+          name: eramba-cm3
+        name: eramba-cm3
+      - configMap:
+          items:
+          - key: mycert.key
+            path: mycert.key
+          name: eramba-cm4
+        name: eramba-cm4
+      - configMap:
+          items:
+          - key: security.conf
+            path: security.conf
+          name: eramba-cm5
+        name: eramba-cm5
+      - configMap:
+          items:
+          - key: ports.conf
+            path: ports.conf
+          name: eramba-cm6
+        name: eramba-cm6
+      - configMap:
+          items:
+          - key: vhost-ssl.conf
+            path: 000-default.conf
+          name: eramba-cm7
+        name: eramba-cm7
+      - configMap:
+          items:
+          - key: crontab
+            path: eramba-crontab
+          name: eramba-cm8
+        name: eramba-cm8

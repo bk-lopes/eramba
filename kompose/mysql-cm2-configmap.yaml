@@ -1,0 +1,10 @@
+apiVersion: v1
+data:
+  grant.sh: |
+    #!/bin/bash
+    mysql -u root -p"$MYSQL_ROOT_PASSWORD" -e 'GRANT PROCESS ON *.* TO '"$MYSQL_USER"'@`%`;'
+kind: ConfigMap
+metadata:
+  labels:
+    io.kompose.service: mysql
+  name: mysql-cm2
