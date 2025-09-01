@@ -15,6 +15,32 @@ spec:
       labels:
         app: cron
     spec:
+      initContainers:
+      - name: init-volumes
+        image: busybox:1.35
+        command: [ "/bin/sh", "-c" ]
+        args:
+        - |
+          echo "📁 Inicializando volumes (Cron)..."
+
+          # Criar diretórios necessários
+          echo "📋 Criando diretórios de dados e logs..."
+          mkdir -p /var/www/eramba/app/upgrade/data
+          mkdir -p /var/www/eramba/app/upgrade/logs
+
+          # Ajustar permissões
+          echo "📋 Ajustando permissões..."
+          chown -R 33:33 /var/www/eramba/app/upgrade/data
+          chown -R 33:33 /var/www/eramba/app/upgrade/logs
+          chmod -R 755 /var/www/eramba/app/upgrade/data
+          chmod -R 755 /var/www/eramba/app/upgrade/logs
+
+          echo "✅ Volumes inicializados (Cron)!"
+        volumeMounts:
+        - name: eramba-data
+          mountPath: /var/www/eramba/app/upgrade/data
+        - name: eramba-logs
+          mountPath: /var/www/eramba/app/upgrade/logs
       containers:
       - name: cron
         image: ghcr.io/eramba/eramba:latest
@@ -91,8 +117,6 @@ spec:
               name: eramba-config
               key: LDAPTLS_REQCERT
         volumeMounts:
-        - name: eramba-app
-          mountPath: /var/www/eramba
         - name: eramba-data
           mountPath: /var/www/eramba/app/upgrade/data
         - name: eramba-logs
@@ -111,9 +135,6 @@ spec:
             memory: "512Mi"
             cpu: "200m"
       volumes:
-      - name: eramba-app
-        persistentVolumeClaim:
-          claimName: eramba-app-pvc
       - name: eramba-data
         persistentVolumeClaim:
           claimName: eramba-data-pvc

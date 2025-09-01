@@ -24,6 +24,18 @@ Este diretório contém os manifestos Kubernetes para deploy do Eramba em um clu
 
 ## Deploy
 
+### Opção 1: Deploy automático (recomendado)
+
+```bash
+# Tornar o script executável
+chmod +x k8s/deploy.sh
+
+# Executar o deploy
+./k8s/deploy.sh
+```
+
+### Opção 2: Deploy manual
+
 ### 1. Configurar variáveis
 
 Edite os arquivos `configmap.yaml` e `secret.yaml` com suas configurações:
@@ -118,7 +130,82 @@ Para migrar para RDS e ElastiCache:
 2. Atualizar variáveis de ambiente no ConfigMap
 3. Configurar conectividade de rede para RDS/ElastiCache
 
+## Limpeza
+
+Para remover todos os recursos do Eramba:
+
+```bash
+# Tornar o script executável
+chmod +x k8s/cleanup.sh
+
+# Executar a limpeza
+./k8s/cleanup.sh
+```
+
 ## Troubleshooting
+
+### Problema: Arquivos não encontrados no Eramba
+
+Se o Eramba apresentar erros como "Could not open input file: composer.phar" ou "rsync: change_dir failed":
+
+**Solução implementada:** Removemos o volume que sobrescrevia o diretório `/var/www/eramba` da imagem. Agora apenas os diretórios de dados e logs são persistentes.
+
+1. **Verificar logs do initContainer:**
+   ```bash
+   kubectl logs deployment/eramba -c init-volumes -n eramba
+   ```
+
+2. **Aplicar a correção:**
+   ```bash
+   kubectl apply -f k8s/eramba.yaml
+   kubectl apply -f k8s/cron.yaml
+   ```
+
+3. **Verificar se os arquivos estão presentes:**
+   ```bash
+   kubectl exec -it deployment/eramba -n eramba -- ls -la /var/www/eramba/
+   kubectl exec -it deployment/eramba -n eramba -- ls -la /var/www/eramba/app/upgrade/
+   ```
+
+### Problema: Pod do Eramba fica em Pending
+
+Se o pod do Eramba ficar em status "Pending" com erro "nc: not found" no initContainer:
+
+1. **Verificar logs do initContainer:**
+   ```bash
+   kubectl logs deployment/eramba -c init-eramba -n eramba
+   ```
+
+2. **Aplicar a correção:**
+   ```bash
+   kubectl apply -f k8s/eramba.yaml
+   ```
+
+3. **Verificar se o pod está funcionando:**
+   ```bash
+   kubectl get pods -n eramba
+   ```
+
+### Problema: MySQL não inicia
+
+Se o MySQL não conseguir iniciar com erro de "Data Dictionary initialization failed":
+
+1. **Verificar se o PVC foi criado corretamente:**
+   ```bash
+   kubectl get pvc -n eramba
+   ```
+
+2. **Deletar o PVC e recriar (CUIDADO: isso apagará os dados):**
+   ```bash
+   kubectl delete pvc mysql-data-pvc -n eramba
+   kubectl apply -f persistent-volumes.yaml
+   kubectl apply -f mysql.yaml
+   ```
+
+3. **Verificar logs do MySQL:**
+   ```bash
+   kubectl logs -f deployment/mysql -n eramba
+   ```
 
 ### Verificar logs
 

@@ -15,10 +15,30 @@ spec:
       labels:
         app: mysql
     spec:
+      initContainers:
+      - name: mysql-init
+        image: mysql:8.0.28-oracle
+        command: [ "/bin/bash", "-c" ]
+        args:
+        - |
+          # Verificar se o diretório de dados está vazio
+          if [ ! "$(ls -A /var/lib/mysql)" ]; then
+            echo "Inicializando diretório de dados do MySQL..."
+            # Copiar arquivos de inicialização se necessário
+            chown -R mysql:mysql /var/lib/mysql
+            chmod 755 /var/lib/mysql
+          else
+            echo "Diretório de dados já existe, pulando inicialização..."
+          fi
+        volumeMounts:
+        - name: mysql-data
+          mountPath: /var/lib/mysql
+        securityContext:
+          runAsUser: 0
       containers:
       - name: mysql
         image: mysql:8.0.28-oracle
-        command: [ "mysqld", "--disable-log-bin" ]
+        args: [ "--disable-log-bin" ]
         ports:
         - containerPort: 3306
         env:
@@ -103,5 +123,15 @@ data:
   grant.sh: |
     #!/bin/bash
     set -e
+
+    # Aguardar MySQL estar disponível
+    until mysql -u root -p$MYSQL_ROOT_PASSWORD -e "SELECT 1" > /dev/null 2>&1; do
+      echo "Aguardando MySQL estar disponível..."
+      sleep 2
+    done
+
+    # Configurar permissões
     mysql -u root -p$MYSQL_ROOT_PASSWORD -e "GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY '$MYSQL_ROOT_PASSWORD';"
     mysql -u root -p$MYSQL_ROOT_PASSWORD -e "FLUSH PRIVILEGES;"
+
+    echo "Configuração do MySQL concluída!"

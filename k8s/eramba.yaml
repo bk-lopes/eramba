@@ -17,29 +17,44 @@ spec:
     spec:
       initContainers:
       - name: init-eramba
-        image: ghcr.io/eramba/eramba:latest
+        image: busybox:1.35
         command: [ "/bin/sh", "-c" ]
         args:
         - |
           # Aguardar MySQL estar disponível
+          echo "Aguardando MySQL estar disponível..."
           until nc -z mysql 3306; do
-            echo "Aguardando MySQL..."
-            sleep 2
+            echo "MySQL ainda não está disponível, aguardando..."
+            sleep 5
           done
-          echo "MySQL está disponível!"
-        env:
-        - name: DB_HOST
-          valueFrom:
-            configMapKeyRef:
-              name: eramba-config
-              key: DB_HOST
+          echo "✅ MySQL está disponível!"
+      - name: init-volumes
+        image: busybox:1.35
+        command: [ "/bin/sh", "-c" ]
+        args:
+        - |
+          echo "📁 Inicializando volumes..."
+
+          # Criar diretórios necessários
+          echo "📋 Criando diretórios de dados e logs..."
+          mkdir -p /var/www/eramba/app/upgrade/data
+          mkdir -p /var/www/eramba/app/upgrade/logs
+
+          # Ajustar permissões
+          echo "📋 Ajustando permissões..."
+          chown -R 33:33 /var/www/eramba/app/upgrade/data
+          chown -R 33:33 /var/www/eramba/app/upgrade/logs
+          chmod -R 755 /var/www/eramba/app/upgrade/data
+          chmod -R 755 /var/www/eramba/app/upgrade/logs
+
+          echo "✅ Volumes inicializados!"
         volumeMounts:
-        - name: eramba-app
-          mountPath: /var/www/eramba
         - name: eramba-data
           mountPath: /var/www/eramba/app/upgrade/data
         - name: eramba-logs
           mountPath: /var/www/eramba/app/upgrade/logs
+        securityContext:
+          runAsUser: 0
       containers:
       - name: eramba
         image: ghcr.io/eramba/eramba:latest
@@ -117,8 +132,6 @@ spec:
               name: eramba-config
               key: LDAPTLS_REQCERT
         volumeMounts:
-        - name: eramba-app
-          mountPath: /var/www/eramba
         - name: eramba-data
           mountPath: /var/www/eramba/app/upgrade/data
         - name: eramba-logs
@@ -143,15 +156,12 @@ spec:
           subPath: crontab
         resources:
           requests:
-            memory: "512Mi"
-            cpu: "250m"
+            memory: "128Mi"
+            cpu: "100m"
           limits:
             memory: "1Gi"
             cpu: "500m"
       volumes:
-      - name: eramba-app
-        persistentVolumeClaim:
-          claimName: eramba-app-pvc
       - name: eramba-data
         persistentVolumeClaim:
           claimName: eramba-data-pvc
