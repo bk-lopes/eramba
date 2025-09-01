@@ -1,50 +1,24 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: eramba
+  name: cron
   namespace: eramba
   labels:
-    app: eramba
+    app: cron
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: eramba
+      app: cron
   template:
     metadata:
       labels:
-        app: eramba
+        app: cron
     spec:
-      initContainers:
-      - name: init-eramba
-        image: ghcr.io/eramba/eramba:latest
-        command: [ "/bin/sh", "-c" ]
-        args:
-        - |
-          # Aguardar MySQL estar disponível
-          until nc -z mysql 3306; do
-            echo "Aguardando MySQL..."
-            sleep 2
-          done
-          echo "MySQL está disponível!"
-        env:
-        - name: DB_HOST
-          valueFrom:
-            configMapKeyRef:
-              name: eramba-config
-              key: DB_HOST
-        volumeMounts:
-        - name: eramba-app
-          mountPath: /var/www/eramba
-        - name: eramba-data
-          mountPath: /var/www/eramba/app/upgrade/data
-        - name: eramba-logs
-          mountPath: /var/www/eramba/app/upgrade/logs
       containers:
-      - name: eramba
+      - name: cron
         image: ghcr.io/eramba/eramba:latest
-        ports:
-        - containerPort: 443
+        command: [ "cron", "-f" ]
         env:
         - name: DB_HOST
           valueFrom:
@@ -123,31 +97,19 @@ spec:
           mountPath: /var/www/eramba/app/upgrade/data
         - name: eramba-logs
           mountPath: /var/www/eramba/app/upgrade/logs
-        - name: apache-ssl
-          mountPath: /etc/ssl/certs/mycert.crt
-          subPath: mycert.crt
-        - name: apache-ssl
-          mountPath: /etc/ssl/private/mycert.key
-          subPath: mycert.key
-        - name: apache-security
-          mountPath: /etc/apache2/conf-available/security.conf
-          subPath: security.conf
-        - name: apache-ports
-          mountPath: /etc/apache2/ports.conf
-          subPath: ports.conf
-        - name: apache-vhost
-          mountPath: /etc/apache2/sites-available/000-default.conf
-          subPath: vhost-ssl.conf
         - name: crontab
           mountPath: /etc/cron.d/eramba-crontab
           subPath: crontab
+        - name: docker-env
+          mountPath: /var/www/docker.env
+          subPath: .env
         resources:
           requests:
-            memory: "512Mi"
-            cpu: "250m"
+            memory: "256Mi"
+            cpu: "100m"
           limits:
-            memory: "1Gi"
-            cpu: "500m"
+            memory: "512Mi"
+            cpu: "200m"
       volumes:
       - name: eramba-app
         persistentVolumeClaim:
@@ -158,33 +120,9 @@ spec:
       - name: eramba-logs
         persistentVolumeClaim:
           claimName: eramba-logs-pvc
-      - name: apache-ssl
-        configMap:
-          name: apache-ssl-config
-      - name: apache-security
-        configMap:
-          name: apache-security-config
-      - name: apache-ports
-        configMap:
-          name: apache-ports-config
-      - name: apache-vhost
-        configMap:
-          name: apache-vhost-config
       - name: crontab
         configMap:
           name: crontab-config
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: eramba
-  namespace: eramba
-  labels:
-    app: eramba
-spec:
-  ports:
-  - port: 443
-    targetPort: 443
-    protocol: TCP
-  selector:
-    app: eramba
+      - name: docker-env
+        configMap:
+          name: eramba-config

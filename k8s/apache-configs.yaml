@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: apache-ssl-config
+  namespace: eramba
+data:
+  mycert.crt: |
+    -----BEGIN CERTIFICATE-----
+    # Substitua pelo seu certificado SSL
+    -----END CERTIFICATE-----
+  mycert.key: |
+    -----BEGIN PRIVATE KEY-----
+    # Substitua pela sua chave privada SSL
+    -----END PRIVATE KEY-----
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: apache-security-config
+  namespace: eramba
+data:
+  security.conf: |
+    ServerTokens Prod
+    ServerSignature Off
+    TraceEnable Off
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: apache-ports-config
+  namespace: eramba
+data:
+  ports.conf: |
+    Listen 80
+    Listen 8080
+    Listen 443
+    Listen 8443
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: apache-vhost-config
+  namespace: eramba
+data:
+  vhost-ssl.conf: |
+    <VirtualHost *:443 *:8443>
+        DocumentRoot "/var/www/eramba"
+        <Directory "/var/www/eramba">
+            AllowOverride all
+            Require all granted
+        </Directory>
+        ErrorLog ${APACHE_LOG_DIR}/error.log
+        CustomLog ${APACHE_LOG_DIR}/access.log combined
+        SSLCertificateFile    /etc/ssl/certs/mycert.crt
+        SSLCertificateKeyFile /etc/ssl/private/mycert.key
+        LimitRequestLine 20000
+    </VirtualHost>

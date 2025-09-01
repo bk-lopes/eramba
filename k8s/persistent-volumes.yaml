@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: eramba-app-pvc
+  namespace: eramba
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  # storageClassName: gp2 # Para EKS, ajuste conforme necessário
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: eramba-data-pvc
+  namespace: eramba
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  # storageClassName: gp2 # Para EKS, ajuste conforme necessário
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: eramba-logs-pvc
+  namespace: eramba
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  # storageClassName: gp2 # Para EKS, ajuste conforme necessário
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-data-pvc
+  namespace: eramba
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  # storageClassName: gp2 # Para EKS, ajuste conforme necessário
